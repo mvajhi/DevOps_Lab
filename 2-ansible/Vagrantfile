@@ -1,0 +1,36 @@
+IMAGE = "bento/ubuntu-22.04"
+WORKER_COUNT = 3
+
+ENV['VAGRANT_NO_PARALLEL'] = 'yes'
+
+Vagrant.configure(2) do |config|
+
+  config.vm.define "manager" do |manager|
+    manager.vm.box = IMAGE
+    manager.vm.hostname = "manager"
+    manager.vm.network "private_network", ip: "192.168.56.10"
+    manager.vm.provider "virtualbox" do |v|
+      v.name = "manager"
+      v.memory = 2048
+      v.cpus = 2
+    end
+    manager.vm.provision :shell, path: "bootstrap_manager.sh"
+  end
+
+
+  (1..WORKER_COUNT).each do |worker_id|
+    config.vm.define "worker#{worker_id}" do |worker_vm|
+      worker_vm.vm.box = IMAGE
+      worker_vm.vm.hostname = "worker#{worker_id}.example.com"
+      worker_vm.vm.network "private_network", ip: "192.168.56.11#{worker_id}"
+      worker_vm.vm.provider "virtualbox" do |v|
+        v.name = "worker#{worker_id}"
+        v.memory = 1024
+        v.cpus = 1
+      end
+      worker_vm.vm.provision "shell", path: "bootstrap_worker.sh"
+    end
+  end
+
+  config.vm.provision :shell, path: "bootstrap.sh", args: [WORKER_COUNT]
+end
