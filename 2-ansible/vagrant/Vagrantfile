@@ -15,7 +15,7 @@ Vagrant.configure(2) do |config|
       v.cpus = 2
     end
     config.vm.synced_folder ".", "/vagrant", disabled: false
-    manager.vm.provision :shell, path: "bootstrap_manager.sh", run: "always"
+    manager.vm.provision :shell, path: "bootstrap_manager.sh"
   end
 
 
