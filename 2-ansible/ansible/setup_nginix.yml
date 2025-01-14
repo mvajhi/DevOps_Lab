@@ -1,0 +1,7 @@
+---
+- hosts: web
+  become: yes
+  gather_facts: yes
+  name: Setup Nginx
+  roles:
+    - { role: nginx, become: True, tags: setup_nginx }
