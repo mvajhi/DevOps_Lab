@@ -1,1 +1,0 @@
-mkdir -p /home/vagrant/.ssh
