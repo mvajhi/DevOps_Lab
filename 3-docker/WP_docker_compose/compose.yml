@@ -1,0 +1,38 @@
+version: '2.32'
+
+networks:
+  wp-network:
+    driver: bridge
+
+volumes:
+  wp-data:
+  db-data:
+
+services:
+  db:
+    image: mysql:5.7
+    volumes:
+      - db-data:/var/lib/mysql
+    restart: always
+    networks:
+      - wp-network
+    environment:
+      MYSQL_DATABASE: wp-db
+      MYSQL_USER: wp-u
+      MYSQL_PASSWORD: wp-p
+      MYSQL_RANDOM_ROOT_PASSWORD: '1'
+  
+  wordpress:
+    image: wordpress:latest
+    restart: always
+    networks:
+      - wp-network
+    ports:
+      - 8080:80
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wp-u
+      WORDPRESS_DB_PASSWORD: wp-p
+      WORDPRESS_DB_NAME: wp-db
+    volumes:
+      - wp-data:/var/www/html
