@@ -3,10 +3,8 @@
 # change the apt source to iran
 sed -i 's/http:\/\/us./http:\/\/ir./g' /etc/apt/sources.list
 
-# set the iptables-persistent to autosave
-echo iptables-persistent iptables-persistent/autosave_v4 boolean true | debconf-set-selections
-echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections
-
+# add my ssh key
+echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEEZ23Ckrz+7PA7T8+2ps1dcREPui1KABCs8tbpZ6E42 mvajhi@mahdi-laptop" >> ~/.ssh/authorized_keys
 
 sudo apt update
-sudo apt install -y vim tmux bash-completion iptables-persistent
+sudo apt install -y vim tmux bash-completion
