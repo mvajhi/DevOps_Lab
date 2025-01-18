@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# chage the apt source to iran
+# change the apt source to iran
 sed -i 's/http:\/\/us./http:\/\/ir./g' /etc/apt/sources.list
 
 sudo apt update
