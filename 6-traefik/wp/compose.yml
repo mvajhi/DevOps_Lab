@@ -1,0 +1,53 @@
+version: '1'
+
+networks:
+  wp-network:
+  web_net:
+    name: web_net
+    external: true
+
+volumes:
+  wp-data:
+  db-data:
+
+services:
+  db:
+    image: mysql:5.7
+    volumes:
+      - db-data:/var/lib/mysql
+    restart: always
+    networks:
+      wp-network:
+    environment:
+      MYSQL_DATABASE: wp-db
+      MYSQL_USER: wp-u
+      MYSQL_PASSWORD: wp-p
+      MYSQL_RANDOM_ROOT_PASSWORD: '1'
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  
+  wordpress:
+    image: wordpress:latest
+    restart: always
+    networks:
+      wp-network:
+      web_net:
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wp-u
+      WORDPRESS_DB_PASSWORD: wp-p
+      WORDPRESS_DB_NAME: wp-db
+    volumes:
+      - wp-data:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=web_net
+      - traefik.http.routers.wp.entrypoints=http
+      - traefik.http.routers.wp.rule=Host(`wp.t.localhost`)
+      - traefik.http.services.wp.loadbalancer.server.port=80
