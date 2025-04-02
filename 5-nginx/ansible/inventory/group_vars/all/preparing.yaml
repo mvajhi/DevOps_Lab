@@ -57,3 +57,5 @@ limit_nproc_soft: 512
 
 insecure_registry: "https://docker.arvancloud.ir"
 registry_mirror: "https://docker.arvancloud.ir"
+
+ubuntu_apt_mirror: "mirror.arvancloud.ir"

@@ -1,4 +1,13 @@
 ---
+
+- name: replace apt mirror on ubuntu
+  become: true
+  template:
+    src: templates/sources.list.ubuntu.j2
+    dest: /etc/apt/sources.list
+    backup: yes
+  register: replace_ubuntu_apt_config
+
 - name: Update and upgrade apt packages
   apt:
     upgrade: yes
