@@ -49,5 +49,10 @@ services:
       - traefik.enable=true
       - traefik.docker.network=web_net
       - traefik.http.routers.wp.entrypoints=http
-      - traefik.http.routers.wp.rule=Host(`wp.t.localhost`)
+      - traefik.http.routers.wp.rule=Host(`wp.mvajhi.ir`)
+      - traefik.http.routers.wp-sec.entrypoints=https
+      - traefik.http.routers.wp-sec.rule=Host(`wp.mvajhi.ir`)
+      - traefik.http.routers.wp-sec.tls=true
+      - traefik.http.routers.wp-sec.tls.certresolver=default
+      - traefik.http.routers.wp.middlewares=redirect-to-https
       - traefik.http.services.wp.loadbalancer.server.port=80
