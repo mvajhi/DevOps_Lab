@@ -1,0 +1,60 @@
+# basic package list for installation
+packages:
+- sysstat
+- wget
+- git
+- vim
+- nano
+- bash-completion
+- curl
+- htop
+- iftop
+- jq
+- ncdu
+- unzip
+- net-tools
+- dnsutils
+- atop
+- sudo
+- ntp
+- fail2ban
+- software-properties-common
+- tcpdump
+- telnet
+- axel
+- iptables-persistent
+- ntp
+- auditd
+- libpwquality-common
+- cracklib-runtime
+- tmux
+- mosh
+
+# sshd configuration
+sshd_config:
+  Port: "{{ ansible_port }}"
+  ListenAddress: 0.0.0.0
+  PermitRootLogin: without-password
+  PasswordAuthentication: "yes"
+  AllowUsers: root
+  AllowGroups: root
+
+# setion timeout setting (seconds)
+timeout_time: 600
+
+# dns variables
+dns: 185.51.200.2 178.22.122.100
+fallback_dns: 10.202.10.202 10.202.10.102
+dnssec: allow-downgrade
+dns_over_tls: opportunistic
+
+# Limit.conf variables
+limit_nofile_hard: 1024
+limit_nofile_soft: 512
+limit_nproc_hard: 1024
+limit_nproc_soft: 512
+
+insecure_registry: "https://docker.arvancloud.ir"
+registry_mirror: "https://docker.arvancloud.ir"
+
+ubuntu_apt_mirror: "mirror.arvancloud.ir"
