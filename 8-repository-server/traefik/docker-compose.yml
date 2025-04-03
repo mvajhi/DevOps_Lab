@@ -1,0 +1,78 @@
+version: '3.8'
+
+networks:
+  public_net:
+    external: true
+
+volumes:
+  traefik_acme:
+    name: traefik-acme
+
+services:
+  traefik:
+    image: traefik:${TRAEFIK_VERSION}
+    container_name: traefik_${HOSTNAME}
+    restart: on-failure
+    networks:
+      - public_net
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_acme:/acme
+    healthcheck:
+      test: wget --quiet --tries=1 --spider http://localhost:8080/ping || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    command:
+      # logging
+      - --log.filepath=/var/log/traefik.log
+      - --log.format=json
+      - --log.level=${TRAEFIK_LOG_LEVEL}
+      
+      # api
+      - --api=true
+      - --api.insecure=true
+      - --ping=true
+      - --accesslog=true
+
+      # providers
+      - --providers.docker.endpoint=unix:///var/run/docker.sock
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=public_net
+
+      # entrypoints
+      - --entrypoints.http.address=:80
+      - --entrypoints.https.address=:443
+
+      # certificates resolvers
+      - --certificatesresolvers.default.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.default.acme.storage=/acme/acme.json
+      - --certificatesresolvers.default.acme.tlschallenge=true
+
+    labels:
+      # network
+      - traefik.enable=true
+      - traefik.docker.network=public_net
+
+      # http router
+      - traefik.http.routers.traefik.entrypoints=http
+      - traefik.http.routers.traefik.rule=Host(`${SUB_DOMAIN}.${DOMAIN}`)
+      
+      # https router
+      - traefik.http.routers.traefik-sec.entrypoints=https
+      - traefik.http.routers.traefik-sec.rule=Host(`${SUB_DOMAIN}.${DOMAIN}`)
+      - traefik.http.routers.traefik-sec.tls=true
+      - traefik.http.routers.traefik-sec.tls.certresolver=default
+
+      # middlewares
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      - traefik.http.routers.traefik.middlewares=redirect-to-https
+      - traefik.http.middlewares.auth.basicauth.users=${TRAEFIK_USERNAME}:${TRAEFIK_PASSWORD}
+      - traefik.http.routers.traefik-sec.middlewares=auth
+
+      # service
+      - traefik.http.services.traefik.loadbalancer.server.port=8080
