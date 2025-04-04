@@ -44,9 +44,8 @@
 - name: Define list of buckets to create
   set_fact:
     buckets:
-      - bucket1
-      - bucket2
-      - bucket3
+      - nexus-docker
+      - nexus-apt
 
 - name: Check if buckets exist
   command: mc ls obj

@@ -10,4 +10,15 @@ minio_root_password: 12345678
 
 minio_api_sub_domain: api.objects
 minio_web_sub_domain: objects
-# minio full domain is minio_api_sub_domain + '.' + domain
+
+nexus_admin_password: 12345678
+
+nexus_repo_user: repo
+nexus_repo_password: 12345678
+nexus_repo_email: tmp@mvajhi.ir
+
+nexus_domain: nexus.mvajhi.ir
+nexus_main_sub_domain: repo
+
+docker_bucket: nexus-docker
+apt_bucket: nexus-apt
