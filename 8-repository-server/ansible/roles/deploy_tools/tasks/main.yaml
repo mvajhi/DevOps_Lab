@@ -9,3 +9,8 @@
   loop: "{{ compose_services }}"
   loop_control:
     loop_var: service
+
+- name: configure minio
+  include_tasks: minio.yaml
+  when: "'minio' in compose_services and inventory_hostname == 'tools-server'"
+  tags: minio

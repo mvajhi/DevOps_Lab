@@ -5,3 +5,9 @@ replicate_domain: replicate.mvajhi.ir
 
 acme_email: cert@mvajhi.ir
 
+minio_root_user: mahdi
+minio_root_password: 12345678
+
+minio_api_sub_domain: api.objects
+minio_web_sub_domain: objects
+# minio full domain is minio_api_sub_domain + '.' + domain
