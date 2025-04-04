@@ -1,0 +1,75 @@
+version: '3.8'
+
+networks:
+  public_net:
+    external: true
+
+volumes:
+  nexus_data:
+    name: nexus_data
+
+services:
+  nexus:
+    image: sonatype/nexus3:${NEXUS_VERSION}
+    container_name: nexus_${HOSTNAME}
+    restart: on-failure
+    networks:
+      - public_net
+    volumes:
+      - nexus_data:/nexus-data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    environment:
+      - NEXUS_SECURITY_RANDOMPASSWORD=false  
+      - NEXUS_ADMIN_USERNAME=${NEXUS_ADMIN_USERNAME}
+      - NEXUS_ADMIN_PASSWORD=${NEXUS_ADMIN_PASSWORD}
+
+    labels:
+      # network
+      - traefik.enable=true
+      - traefik.docker.network=public_net
+
+      # http repository
+      - traefik.http.routers.nexus-repository.entrypoints=http
+      - traefik.http.routers.nexus-repository.rule=Host(`${NEXUS_REPO_SUB}.${DOMAIN}`)
+      - traefik.http.routers.nexus-repository.service=nexus-repository
+      - traefik.http.routers.nexus-repository.middlewares=redirect-to-https
+      
+      # https repository
+      - traefik.http.routers.nexus-repository-secure.entrypoints=https
+      - traefik.http.routers.nexus-repository-secure.rule=Host(`${NEXUS_REPO_SUB}.${DOMAIN}`)
+      - traefik.http.routers.nexus-repository-secure.tls=true
+      - traefik.http.routers.nexus-repository-secure.tls.certresolver=default
+      - traefik.http.routers.nexus-repository-secure.service=nexus-repository
+      - traefik.http.services.nexus-repository.loadbalancer.server.port=8081
+
+      # http docker
+      - traefik.http.routers.nexus-docker.entrypoints=http
+      - traefik.http.routers.nexus-docker.rule=Host(`${NEXUS_DOCKER_SUB}.${DOMAIN}`)
+      - traefik.http.routers.nexus-docker.service=nexus-docker
+      - traefik.http.routers.nexus-docker.middlewares=redirect-to-https
+
+      # https docker
+      - traefik.http.routers.nexus-docker-secure.entrypoints=https
+      - traefik.http.routers.nexus-docker-secure.rule=Host(`${NEXUS_DOCKER_SUB}.${DOMAIN}`)
+      - traefik.http.routers.nexus-docker-secure.tls=true
+      - traefik.http.routers.nexus-docker-secure.tls.certresolver=default
+      - traefik.http.routers.nexus-docker-secure.service=nexus-docker
+      - traefik.http.services.nexus-docker.loadbalancer.server.port=8082
+
+      # http registry
+      - traefik.http.routers.nexus-registry.entrypoints=http
+      - traefik.http.routers.nexus-registry.rule=Host(`${NEXUS_REGISTRY_SUB}.${DOMAIN}`)
+      - traefik.http.routers.nexus-registry.service=nexus-registry
+      - traefik.http.routers.nexus-registry.middlewares=redirect-to-https
+      
+      # https registry
+      - traefik.http.routers.nexus-registry-secure.entrypoints=https
+      - traefik.http.routers.nexus-registry-secure.rule=Host(`${NEXUS_REGISTRY_SUB}.${DOMAIN}`)
+      - traefik.http.routers.nexus-registry-secure.tls=true
+      - traefik.http.routers.nexus-registry-secure.tls.certresolver=default
+      - traefik.http.routers.nexus-registry-secure.service=nexus-registry
+      - traefik.http.services.nexus-registry.loadbalancer.server.port=8083
