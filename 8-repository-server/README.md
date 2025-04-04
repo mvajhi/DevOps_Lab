@@ -1,6 +1,6 @@
 # Repository server
 ## Design
-![diagram]()
+![diagram](https://github.com/mvajhi/DevOps_Lab/blob/main/8-repository-server/diagram.drawio.png?raw=true)
 ## Deploy and config
 ### Prepare server
 this ansible contain:
