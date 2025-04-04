@@ -1,0 +1,22 @@
+---
+- name: Create "{{ compose_dir }}/traefik" directory
+  ansible.builtin.file:
+    path: "{{ compose_dir }}/traefik"
+    state: directory
+    mode: '0755'
+
+- name: copy traefik compose file
+  copy:
+    src: traefik_dc.yml
+    dest: "{{ compose_dir }}/traefik/docker-compose.yml"
+
+- name: make traefik configuration (env file)
+  template:
+    src: traefik.env.j2
+    dest: "{{ compose_dir }}/traefik/.env"
+  vars:
+    is_replicate: "{{'replicate' in (labels | default([]))}}"
+
+- name: traefik compose up
+  community.docker.docker_compose_v2:
+    project_src: "{{ compose_dir }}/traefik"

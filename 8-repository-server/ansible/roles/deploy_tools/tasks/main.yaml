@@ -1,0 +1,11 @@
+- name: Set services list
+  set_fact:
+    compose_services:
+      - traefik
+      - minio
+
+- name: Deploy services in loop
+  include_tasks: deploy_services.yaml
+  loop: "{{ compose_services }}"
+  loop_control:
+    loop_var: service
