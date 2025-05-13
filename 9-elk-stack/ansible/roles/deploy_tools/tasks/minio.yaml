@@ -1,0 +1,61 @@
+---
+- name: Check if mc exists in /usr/local/bin
+  stat:
+    path: /usr/local/bin/mc
+  register: mc_binary
+
+- name: Download mc binary if not exists
+  get_url:
+    url: https://dl.min.io/client/mc/release/linux-amd64/mc
+    dest: /usr/local/bin/mc
+    mode: '0755'
+  when: not mc_binary.stat.exists
+
+- name: Check if mc alias for main MinIO exists
+  command: mc alias list
+  register: mc_alias_list
+  changed_when: false
+  failed_when: false
+
+- name: Set mc alias for main MinIO
+  command: mc alias set obj https://{{ minio_api_sub_domain }}.{{ domain }} {{ minio_root_user }} {{ minio_root_password }}
+  when: "'obj' not in mc_alias_list.stdout"
+  register: set_alias_main
+  changed_when: "'Added `obj` successfully.' in set_alias_main.stdout" 
+
+- name: Set mc alias for replicate MinIO
+  command: mc alias set rep-obj https://{{ minio_api_sub_domain }}.{{ replicate_domain }} {{ minio_root_user }} {{ minio_root_password }}
+  when: "'rep-obj' not in mc_alias_list.stdout"
+  register: set_alias_rep
+  changed_when: "'Added `rep-obj` successfully.' in set_alias_rep.stdout"
+
+- name: Check if replication from obj to rep-obj is already configured
+  command: mc admin replicate status obj
+  register: replication_info
+  changed_when: false
+  failed_when: false
+
+- name: Setup replication from obj to rep-obj
+  command: mc admin replicate add obj rep-obj
+  when: "'{{ minio_api_sub_domain }}.{{ replicate_domain }}' not in replication_info.stdout"
+  register: replication_add
+  changed_when: "'successfully' in replication_add.stdout"
+
+- name: Define list of buckets to create
+  set_fact:
+    buckets:
+      - nexus-docker
+      - nexus-apt
+
+- name: Check if buckets exist
+  command: mc ls obj
+  register: bucket_list
+  changed_when: false
+  failed_when: false
+
+- name: Create buckets if not already exist
+  command: mc mb obj/{{ item }}
+  when: "'{{ item }}' not in bucket_list.stdout"
+  loop: "{{ buckets }}"
+  register: create_buckets
+  changed_when: "'Bucket created successfully' in create_buckets.stdout"

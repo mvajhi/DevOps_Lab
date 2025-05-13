@@ -1,0 +1,31 @@
+---
+- name: Ensure nexus directory exists
+  file:
+    path: "{{ compose_dir }}/nexus"
+    state: directory
+    mode: '0755'
+
+- name: Check if nexus setup already done
+  stat:
+    path: "{{ compose_dir }}/nexus/.nexus_setup_done"
+  register: nexus_setup_marker
+
+- name: Template nexus setup script to remote host
+  template:
+    src: nexus-setup-with-api.sh.j2
+    dest: "{{ compose_dir }}/nexus/nexus-setup.sh"
+    mode: '0755'
+  when: not nexus_setup_marker.stat.exists
+
+- name: Run nexus setup script
+  command: "{{ compose_dir }}/nexus/nexus-setup.sh"
+  when: not nexus_setup_marker.stat.exists
+  register: nexus_setup_result
+
+- name: Mark nexus setup as done
+  file:
+    path: "{{ compose_dir }}/nexus/.nexus_setup_done"
+    state: touch
+  when:
+    - not nexus_setup_marker.stat.exists
+    - nexus_setup_result is succeeded

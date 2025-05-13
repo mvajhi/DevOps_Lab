@@ -1,0 +1,27 @@
+- name: Set services list
+  set_fact:
+    compose_services:
+      - traefik
+      - minio
+
+- name: Deploy services in loop
+  include_tasks: deploy_services.yaml
+  loop: "{{ compose_services }}"
+  loop_control:
+    loop_var: service
+
+- name: Deploy Nexus
+  include_tasks: deploy_services.yaml
+  when: "'tools-server' == inventory_hostname"
+  vars:
+    service: nexus
+
+- name: configure minio
+  include_tasks: minio.yaml
+  when: "'minio' in compose_services and inventory_hostname == 'tools-server'"
+  tags: minio
+
+- name: configure nexus
+  include_tasks: nexus.yaml
+  when: "inventory_hostname == 'tools-server'"
+  tags: nexus

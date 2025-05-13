@@ -1,0 +1,16 @@
+---
+- name: create public_net network
+  docker_network:
+    name: public_net
+
+- name: create private_net network
+  docker_network:
+    name: private_net
+
+- name: pull docker images
+  docker_image:
+    name: "{{ item.name }}"
+    tag: "{{ item.tag }}"
+    source: pull
+  loop: "{{ docker_images }}"
+

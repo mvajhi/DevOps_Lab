@@ -1,0 +1,152 @@
+version: '3.8'
+
+networks:
+  public_net:
+    external: true
+  private_net:
+    external: true
+
+volumes:
+  elasticsearch_data:
+    name: elasticsearch_data
+services:
+  elasticsearch:
+    image: elasticsearch:${ELASTICSEARCH_VERSION}
+    container_name: elasticsearch
+    restart: on-failure
+    environment:
+      # elasticsearch
+      discovery.type: "single-node"
+      cluster.name: "docker-cluster"
+      node.name: "elasticsearch"
+
+      # network
+      network.host: 0.0.0.0
+      http.port: 9200
+      http.cors.enabled: "true"
+
+      # user
+      ELASTIC_USERNAME: "${ELASTIC_USERNAME}"
+      ELASTIC_PASSWORD: "${ELASTIC_PASSWORD}"
+
+      # java heap size
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      bootstrap.memory_lock: "true"
+
+      # xpack
+      xpack.security.enabled: "true"
+      xpack.security.authc.api_key.enabled: "true"
+      xpack.license.self_generated.type: "basic"
+      xpack.monitoring.collection.enabled: "true"
+    
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    
+    networks:
+      - public_net
+      - private_net
+    
+    healthcheck:
+      test: [ "CMD", "sh",  "/usr/share/elasticsearch/health-check.sh" ]
+      interval: 30s
+      timeout: 3s
+
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+      - ./es_hc.sh:/usr/share/elasticsearch/health-check.sh
+    
+    labels:
+      # network
+      - traefik.enable=true
+      - traefik.docker.network=public_net
+
+      # http browser
+      - traefik.http.routers.elastic.entrypoints=http
+      - traefik.http.routers.elastic.rule=Host(`${ELASTIC_SUB_DOMAIN}.${DOMAIN}`)
+      - traefik.http.routers.elastic.service=elastic
+      - traefik.http.routers.elastic.middlewares=redirect-to-https
+
+      # https browser
+      - traefik.http.routers.elastic-secure.entrypoints=https
+      - traefik.http.routers.elastic-secure.rule=Host(`${ELASTIC_SUB_DOMAIN}.${DOMAIN}`)
+      - traefik.http.routers.elastic-secure.tls=true
+      - traefik.http.routers.elastic-secure.tls.certresolver=default
+      - traefik.http.routers.elastic-secure.service=elastic
+      - traefik.http.services.elastic.loadbalancer.server.port=9200
+
+  logstash:
+    image: logstash:${LOGSTASH_VERSION}
+    container_name: logstash
+    restart: on-failure
+    environment:
+      LS_JAVA_OPTS: "-Xms1g -Xmx1g"
+
+      ELASTIC_HOSTNAME: "${ELASTIC_HOSTNAME}"
+      ELASTIC_USERNAME: "${ELASTIC_USERNAME}"
+      ELASTIC_PASSWORD: "${ELASTIC_PASSWORD}"
+    
+    networks:
+      - private_net
+      
+    ports:
+      - "5044:5044"
+      - "9600:9600"
+
+    volumes:
+      - ./logstash/logstash.yml:/usr/share/logstash/config/logstash.yml
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  kibana:
+    image: kibana:${KIBANA_VERSION}
+    container_name: kibana
+    restart: on-failure
+    environment:
+      SERVER_NAME: "kibana"
+      ELASTIC_HOSTNAME: "${ELASTIC_HOSTNAME}"
+      ELASTIC_USERNAME: "${ELASTIC_USERNAME}"
+      ELASTIC_PASSWORD: "${ELASTIC_PASSWORD}"
+      PUBLIC_URL: "https://${KIBANA_SUB_DOMAIN}.${DOMAIN}"
+      MONITORING_UI_CONTAINER_ELASTICSEARCH_ENABLED: "true"
+
+      # fleet
+      XPACK_FLEET_ENABLED: "true"
+      XPACK_FLEET_AGENTS_ENABLED: "true"
+      XPACK_FLEET_AGENTS_ELASTICSEARCH_HOST: "${ELASTIC_HOSTNAME}"
+      XPACK_FLEET_AGENTS_FLEET_SERVER_HOST: "[\"https://fleet:8220\"]"
+      XPACK_FLEET_AGENTS_TLSCHECKDISABLE: "true"
+
+    volumes:
+      - ./kibana.yml:/usr/share/kibana/config/kibana.yml
+
+    networks:
+      - public_net
+      - private_net
+
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+    labels:
+      # network
+      - traefik.enable=true
+      - traefik.docker.network=public_net
+
+      # http router
+      - traefik.http.routers.kibana.rule=Host(`${KIBANA_SUB_DOMAIN}.${DOMAIN}`)
+      - traefik.http.routers.kibana.entrypoints=http
+      - traefik.http.routers.kibana.middlewares=redirect-to-https
+
+      # https router
+      - traefik.http.routers.kibana-secure.rule=Host(`${KIBANA_SUB_DOMAIN}.${DOMAIN}`)
+      - traefik.http.routers.kibana-secure.entrypoints=https
+      - traefik.http.routers.kibana-secure.tls=true
+      - traefik.http.routers.kibana-secure.tls.options=default
+      - traefik.http.routers.kibana-secure.tls.certresolver=default
+      - traefik.http.services.kibana-secure.loadbalancer.server.port=5601
+

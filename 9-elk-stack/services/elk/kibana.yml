@@ -1,0 +1,11 @@
+---
+
+server.name: ${SERVER_NAME}
+server.host: "0.0.0.0"
+server.publicBaseUrl: ${PUBLIC_URL}
+
+xpack.monitoring.ui.container.elasticsearch.enabled: 
+
+elasticsearch.hosts: ["${ELASTIC_HOSTNAME}"]
+elasticsearch.username: ${ELASTIC_USERNAME}
+elasticsearch.password: ${ELASTIC_PASSWORD}
