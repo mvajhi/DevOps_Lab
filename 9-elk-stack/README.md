@@ -2,12 +2,18 @@
 
 This guide provides instructions for deploying the ELK stack (Elasticsearch, Logstash, Kibana, and Fleet) using Ansible and Docker Compose.
 
+## Introduction
+
+The ELK stack is a powerful set of tools for collecting, processing, and visualizing log data. This guide will walk you through the process of deploying the ELK stack using Ansible and Docker Compose.
+
 ## Prerequisites
 
 - Ensure you have Ansible installed on your local machine.
 - Ensure you have Docker and Docker Compose installed on the target server.
 
-## Step 1: Set Up Environment Variables
+## Installation
+
+### Step 1: Set Up Environment Variables
 
 1. Navigate to the `9-elk-stack/services/elk` directory.
 2. Open the `.env` file and set the necessary environment variables. For example:
@@ -32,7 +38,7 @@ ELASTIC_HOSTNAME=http://elasticsearch:9200
 KIBANA_HOSTNAME=http://kibana:5601
 ```
 
-## Step 2: Run Ansible Playbooks
+### Step 2: Run Ansible Playbooks
 
 1. Navigate to the `9-elk-stack/ansible` directory.
 2. Run the `preparing.yaml` playbook to prepare the server:
@@ -47,7 +53,7 @@ ansible-playbook -i inventory/hosts.yml preparing.yaml
 ansible-playbook -i inventory/hosts.yml roles/deploy_tools/tasks/main.yaml
 ```
 
-## Step 3: Start ELK Stack Services
+### Step 3: Start ELK Stack Services
 
 1. Navigate to the `9-elk-stack/services/elk` directory.
 2. Run the Docker Compose configuration to start the ELK stack services:
@@ -56,7 +62,9 @@ ansible-playbook -i inventory/hosts.yml roles/deploy_tools/tasks/main.yaml
 docker-compose up -d
 ```
 
-## Step 4: Deploy Beats and Agent
+## Configuration
+
+### Step 4: Deploy Beats and Agent
 
 1. Navigate to the `9-elk-stack/services/elk/beats` directory.
 2. Open the `.env` file and set the necessary environment variables. For example:
@@ -113,7 +121,9 @@ FLEET_URL=https://fleet.obs.mvajhi.ir:8220
 docker-compose up -d
 ```
 
-## Step 5: Connect Agent from Secondary Server to Main Server and Obtain Enrollment Token
+## Deployment
+
+### Step 5: Connect Agent from Secondary Server to Main Server and Obtain Enrollment Token
 
 1. On the secondary server, navigate to the `9-elk-stack/services/elk-agent` directory.
 2. Open the `.env` file and set the necessary environment variables as mentioned in Step 4.
@@ -134,6 +144,15 @@ To obtain the enrollment token in Kibana, follow these steps:
 4. Click on the "Add agent" button.
 5. Follow the instructions to obtain the enrollment token.
 6. Copy the enrollment token and place it in the `FLEET_ENROLLMENT_TOKEN` variable in the `.env` file of the Elastic Agent.
+
+## Troubleshooting
+
+If you encounter any issues during the deployment process, refer to the following troubleshooting steps:
+
+- Ensure that all environment variables are set correctly in the `.env` files.
+- Check the logs of the ELK stack services using the `docker-compose logs` command.
+- Verify that the Ansible playbooks ran successfully without any errors.
+- Ensure that the Docker Compose configuration files are correctly set up.
 
 ## Conclusion
 
