@@ -158,12 +158,13 @@ services:
 
   fleet:
     image: elastic/elastic-agent:${FLEET_VERSION}
-    container_name: fleet-${HOSTNAME}
+    container_name: fleet
+    hostname: "${FLEET_SUB_DOMAIN}.${DOMAIN}"
     restart: on-failure
     environment:
-      ELASTIC_HOSTNAME: "${ELASTIC_HOSTNAME}"
-      ELASTIC_USERNAME: "${ELASTIC_USERNAME}"
-      ELASTIC_PASSWORD: "${ELASTIC_PASSWORD}"
+      ELASTICSEARCH_HOSTNAME: "${ELASTIC_HOSTNAME}"
+      ELASTICSEARCH_USERNAME: "${ELASTIC_USERNAME}"
+      ELASTICSEARCH_PASSWORD: "${ELASTIC_PASSWORD}"
 
       FLEET_SERVER_ENABLE: "true"
       FLEET_SERVER_HOST: "0.0.0.0"
