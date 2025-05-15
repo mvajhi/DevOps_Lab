@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  elastic-agent:
+    image: docker.elastic.co/beats/elastic-agent:${ELK_VERSION}
+    container_name: elastic-agent
+    hostname: "${HOSTNAME}.${DOMAIN}"
+    user: root
+    environment:
+      FLEET_ENROLL: 1
+      FLEET_ENROLLMENT_TOKEN: ${FLEET_ENROLLMENT_TOKEN}
+      FLEET_URL: ${FLEET_URL}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
