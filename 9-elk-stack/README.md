@@ -6,6 +6,9 @@ This guide provides instructions for deploying the ELK stack (Elasticsearch, Log
 
 The ELK stack is a powerful set of tools for collecting, processing, and visualizing log data. This guide will walk you through the process of deploying the ELK stack using Ansible and Docker Compose.
 
+## Design
+![diagram](https://github.com/mvajhi/DevOps_Lab/blob/main/9-elk-stack/Diagram.drawio.png?raw=true)
+
 ## Prerequisites
 
 - Ensure you have Ansible installed on your local machine.
