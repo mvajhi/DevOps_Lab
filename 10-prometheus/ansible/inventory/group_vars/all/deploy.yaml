@@ -1,0 +1,6 @@
+compose_dir: /opt/compose
+
+domain: obs.mvajhi.ir
+
+acme_email: cert@mvajhi.ir
+

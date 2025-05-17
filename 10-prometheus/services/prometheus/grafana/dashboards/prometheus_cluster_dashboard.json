@@ -1,0 +1,265 @@
+{
+  "id": null,
+  "title": "Prometheus Cluster Overview",
+  "tags": ["prometheus", "node-exporter", "cadvisor", "traefik", "alertmanager", "blackbox", "monitoring"],
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Prometheus Up",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "up{job=\"prometheus\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 0 }
+    },
+    {
+      "type": "stat",
+      "title": "Node Exporter Up",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "up{job=\"node-exporter\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 0 }
+    },
+    {
+      "type": "stat",
+      "title": "cAdvisor Up",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "up{job=\"cadvisor\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 0 }
+    },
+    {
+      "type": "stat",
+      "title": "Traefik Up",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "up{job=\"traefik\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 3, "w": 4, "x": 12, "y": 0 }
+    },
+    {
+      "type": "stat",
+      "title": "Alertmanager Up",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "up{job=\"alertmanager\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "gridPos": { "h": 3, "w": 4, "x": 16, "y": 0 }
+    },
+    {
+      "type": "stat",
+      "title": "Grafana Up",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "up{job=\"grafana\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "gridPos": { "h": 3, "w": 4, "x": 20, "y": 0 }
+    },
+    {
+      "type": "stat",
+      "title": "Pushgateway Up",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "up{job=\"pushgateway\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 3 }
+    },
+    {
+      "type": "stat",
+      "title": "Blackbox-exporter Up",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "up{job=\"blackbox-exporter\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 3 }
+    },
+    {
+      "type": "stat",
+      "title": "Ping 8.8.8.8",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "probe_success{instance=\"8.8.8.8\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 3 }
+    },
+    {
+      "type": "stat",
+      "title": "Ping 1.1.1.1",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "probe_success{instance=\"1.1.1.1\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "gridPos": { "h": 3, "w": 4, "x": 12, "y": 3 }
+    },
+    {
+      "type": "graph",
+      "title": "Node CPU Usage",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "100 - (avg by(instance) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "percent",
+          "label": "CPU Usage",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "format": "short"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 }
+    },
+    {
+      "type": "graph",
+      "title": "Node Memory Usage",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "percent",
+          "label": "Memory Usage",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "format": "short"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 }
+    },
+    {
+      "type": "graph",
+      "title": "Node Disk Usage",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "100 - (node_filesystem_free_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"} * 100)",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "percent",
+          "label": "Disk Usage",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "format": "short"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 }
+    },
+    {
+      "type": "graph",
+      "title": "Traefik Requests",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(traefik_service_requests_total[1m])) by (service)",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "short",
+          "label": "Requests/sec"
+        },
+        {
+          "format": "short"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "instance",
+        "type": "query",
+        "datasource": "Prometheus",
+        "refresh": 2,
+        "query": "label_values(up, instance)",
+        "includeAll": true,
+        "multi": true,
+        "current": {}
+      }
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+---
+- name: Ensure "{{ compose_dir }}/{{ service }}" directory exists
+  ansible.builtin.file:
+    path: "{{ compose_dir }}/{{ service }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy "{{ service }}" docker-compose file
+  copy:
+    src: "{{ service }}_dc.yml"
+    dest: "{{ compose_dir }}/{{ service }}/docker-compose.yml"
+
+- name: Generate .env file for "{{ service }}"
+  template:
+    src: "{{ service }}.env.j2"
+    dest: "{{ compose_dir }}/{{ service }}/.env"
+  vars:
+    is_replicate: "{{ 'replicate' in (labels | default([])) }}"
+
+- name: Docker compose up for "{{ service }}"
+  community.docker.docker_compose_v2:
+    project_src: "{{ compose_dir }}/{{ service }}"
