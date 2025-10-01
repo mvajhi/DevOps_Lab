@@ -1,0 +1,47 @@
+stages:          # List of stages for jobs, and their order of execution
+  - build
+
+services:
+  - docker:dind
+
+default:
+  image: docker:dind
+  before_script:
+    - echo "Login to docker reg..."
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+    - echo "Login successful"
+
+variables:
+  IMG: "${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/runner"
+
+build-tools-img:
+  stage: build
+  script:
+    - echo "Building tools img..."
+    - docker build -t ${IMG}:tools ./tools-img
+    - docker push ${IMG}:tools 
+    - echo "Building tools img complete."
+
+build-toolsd-img:
+  stage: build
+  script:
+    - echo "Building toolsd img..."
+    - docker build -t ${IMG}:toolsd ./toolsd-img
+    - docker push ${IMG}:toolsd 
+    - echo "Building toolsd img complete."
+
+build-mc-img:
+  stage: build
+  script:
+    - echo "Building mc img..."
+    - docker build -t ${IMG}:mc ./mc-img
+    - docker push ${IMG}:mc 
+    - echo "Building mc img complete."
+
+build-trivy-img:
+  stage: build
+  script:
+    - echo "Building trivy img..."
+    - docker build -t ${IMG}:trivy ./trivy-img
+    - docker push ${IMG}:trivy
+    - echo "Building trivy img complete."
