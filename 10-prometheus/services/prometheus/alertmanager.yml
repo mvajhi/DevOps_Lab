@@ -1,8 +1,21 @@
+# https://github.com/AhmadRafiee/DevOps_Certification/tree/main/observability/prometheus-stack
 global:
-  resolve_timeout: 5m
+  resolve_timeout: 1m
 
 route:
-  receiver: 'default'
+  receiver: 'Production_Environment'
+  group_wait: 30s
+  group_interval: 30s
+  repeat_interval: 30s
+  group_by: ['instance', 'severity']
 
 receivers:
-  - name: 'default'
+- name: 'Production_Environment'
+  telegram_configs:
+  - bot_token: '<TOKEN>'
+    api_url: "https://tapi.bale.ai"
+    chat_id: 4484783174
+    parse_mode: ""
+    send_resolved: true
+    disable_notifications: false
+  

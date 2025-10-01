@@ -10,6 +10,7 @@ volumes:
   prometheus_data:
   grafana_data:
   alertmanager_data:
+  loki_data:
 
 services:
   prometheus:
@@ -59,6 +60,8 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GF_PATH_PROVISIONING=/etc/grafana/provisioning
+      - GF_PATH_DATA=/var/lib/grafana
     networks:
       - public_net
       - private_net
@@ -192,3 +195,53 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+
+  loki:
+      image: grafana/loki:${LOKI_VERSION}
+      container_name: loki
+      restart: on-failure
+      command: -config.file=/etc/loki/local-config.yaml
+      volumes:
+        - ./loki.yml:/etc/loki/local-config.yaml
+        - loki_data:/tmp/loki
+      networks:
+        - public_net
+        - private_net
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=public_net
+        - traefik.http.routers.loki.rule=Host(`${LOKI_SUB_DOMAIN}.${DOMAIN}`)
+        - traefik.http.routers.loki.entrypoints=http
+        - traefik.http.routers.loki.middlewares=redirect-to-https
+        - traefik.http.routers.loki-secure.rule=Host(`${LOKI_SUB_DOMAIN}.${DOMAIN}`)
+        - traefik.http.routers.loki-secure.entrypoints=https
+        - traefik.http.routers.loki-secure.tls=true
+        - traefik.http.routers.loki-secure.tls.options=default
+        - traefik.http.routers.loki-secure.tls.certresolver=default
+        - traefik.http.services.loki-secure.loadbalancer.server.port=3100
+      # healthcheck:
+      #   test: ["CMD", "wget", "--quiet", "--tries=1", "--output-document=-", "http://localhost:3100/ready", "|", "grep", "-q", "-w", "ready", "||", "exit", "1"]
+      #   interval: 10s
+      #   timeout: 5s
+      #   retries: 5
+      #   start_period: 20s
+
+  promtail:
+      image: grafana/promtail:${PROMTAIL_VERSION}
+      container_name: promtail-${HOSTNAME}
+      hostname: promtail-${HOSTNAME}
+      restart: on-failure
+      volumes:
+        - ./promtail.yml:/etc/promtail/config.yml
+        - /var/run/docker.sock:/var/run/docker.sock:ro 
+        - /var/lib/docker/containers:/var/lib/docker/containers:ro
+        - /var/log:/var/log:ro
+      command: -config.file=/etc/promtail/config.yml
+      networks:
+        - private_net
+      # healthcheck:
+      #   test: ["CMD-SHELL", "pgrep promtail > /dev/null || exit 1"]
+      #   interval: 10s
+      #   timeout: 5s
+      #   retries: 3
+      #   start_period: 5s
