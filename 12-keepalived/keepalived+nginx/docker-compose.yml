@@ -1,0 +1,79 @@
+services:
+  node_a:
+    build:
+      context: .
+    container_name: node_a
+    networks:
+      keepalived-net:
+        ipv4_address: 172.20.0.10
+    volumes:
+      - ./master.conf:/etc/keepalived/external/keepalived.conf:ro
+    environment:
+      - NODE_NAME=Node A
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    restart: always
+
+  node_b:
+    build:
+      context: .
+    container_name: node_b
+    networks:
+      keepalived-net:
+        ipv4_address: 172.20.0.20
+    volumes:
+      - ./backup.conf:/etc/keepalived/external/keepalived.conf:ro
+    environment:
+      - NODE_NAME=Node B
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    restart: always
+
+  client:
+    image: curlimages/curl
+    container_name: client
+    networks:
+      - keepalived-net
+    command: >
+      sh -c "while true; do 
+        echo '--- Sending request ---'; 
+        curl -s http://172.20.0.100; 
+        sleep 2; 
+      done"
+    depends_on:
+      - node_a
+      - node_b
+
+  chaos:
+    image: docker:cli
+    container_name: chaos_monkey
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: >
+      sh -c "
+        echo 'Chaos Monkey starting...';
+        sleep 10;
+        while true; do
+          echo '=== Stopping node_a ===';
+          docker stop node_a;
+          echo 'Waiting 20 seconds...';
+          sleep 20;
+          echo '=== Starting node_a ===';
+          docker start node_a;
+          echo 'Waiting 20 seconds...';
+          sleep 20;
+        done
+      "
+    depends_on:
+      - node_a
+      - node_b
+      - client
+
+networks:
+  keepalived-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
