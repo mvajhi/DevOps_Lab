@@ -1,0 +1,15 @@
+version: '3.8'
+
+volumes:
+  runner_config:
+
+services:
+  gitlab_runner:
+    image: gitlab/gitlab-runner:${RUNNER_VERSION}
+    container_name: gitlab_runner
+    restart: always
+    hostname: gitlab-runner
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - runner_config:/etc/gitlab-runner
+      - ./config.toml:/etc/gitlab-runner/config.toml:ro
