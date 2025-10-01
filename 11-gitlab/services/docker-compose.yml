@@ -1,0 +1,124 @@
+version: '3.8'
+
+networks:
+  public_net:
+    external: true
+
+volumes:
+  gitlab_config:
+  gitlab_logs:
+  gitlab_data:
+
+services:
+  gitlab:
+    image: "gitlab/gitlab-ce:${GITLAB_VERSION}"
+    container_name: "gitlab"
+    restart: always
+    hostname: "${GITLAB_SUB_DOMAIN}.${DOMAIN}"
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url "https://${GITLAB_SUB_DOMAIN}.${DOMAIN}"
+        
+        # root pass
+        gitlab_rails['initial_root_password'] = "${GITLAB_R_PASS}"
+        gitlab_rails['display_initial_root_password'] = false
+        gitlab_rails['store_initial_root_password'] = false
+
+        # nginx
+        nginx['enable'] = true
+        nginx['listen_port'] = 80
+        nginx['listen_https'] = false
+        nginx['proxy_set_headers'] = {
+          "X-Forwarded-Proto" => "https",
+          "X-Forwarded-Ssl" => "on"
+        }
+
+        # ssh port
+        gitlab_rails['gitlab_shell_ssh_port'] = ${GITLAB_SSH_PORT}
+
+        # fail2ban
+        gitlab_rails['rack_attack_git_basic_auth'] = {
+          'enabled' => true,
+          'ip_whitelist' => ["127.0.0.1", "172.17.0.0/16", "172.18.0.0/16", "172.19.0.0/16", "172.20.0.0/16", "192.168.1.0/24"],
+          'maxretry' => 5,
+          'findtime' => 60,
+          'bantime' => 3600
+        }
+
+        # SMTP
+        # for test: Notify.test_email('mvajhi@ut.ac.ir', 'Message Subject', 'Message Body').deliver_now (https://github.com/AhmadRafiee/DevOps_Certification)
+        gitlab_rails['smtp_enable'] = true
+        gitlab_rails['smtp_address'] = "${SMTP_ADDRESS}"
+        gitlab_rails['smtp_port'] = ${SMTP_PORT}
+        gitlab_rails['smtp_user_name'] = "${SMTP_USER}"
+        gitlab_rails['smtp_password'] = "${SMTP_PASS}"
+        gitlab_rails['smtp_domain'] = "${SMTP_ADDRESS}"
+        gitlab_rails['smtp_authentication'] = "login"
+        gitlab_rails['smtp_enable_starttls_auto'] = true
+        gitlab_rails['smtp_tls'] = false
+        gitlab_rails['smtp_openssl_verify_mode'] = 'peer'
+
+        # backup
+        gitlab_rails['backup_keep_time'] = 604800 # 7 days
+        gitlab_rails['backup_path'] = "/var/opt/gitlab/backups"
+        gitlab_rails['backup_archive_permissions'] = 0644
+        gitlab_rails['env'] = { "SKIP" => "registry" }
+
+        # registry
+        registry['enable'] = true
+        registry_external_url "https://${REGISTRY_SUB_DOMAIN}.${DOMAIN}"
+        registry_nginx['enable'] = true
+        registry_nginx['listen_port'] = 5050
+        registry_nginx['listen_https'] = false
+        registry_nginx['proxy_set_headers'] = {
+          "X-Forwarded-Proto" => "https",
+          "X-Forwarded-Ssl" => "on"
+        }
+
+    volumes:
+      - gitlab_config:/etc/gitlab
+      - gitlab_logs:/var/log/gitlab
+      - gitlab_data:/var/opt/gitlab
+    shm_size: '256m'
+    networks:
+      - public_net
+    ports:
+      - "${GITLAB_SSH_PORT}:${GITLAB_SSH_PORT}"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=public_net"
+
+      # Middleware for HTTP to HTTPS redirect
+      - "traefik.http.middlewares.gitlab-redirect-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.gitlab-redirect-https.redirectscheme.permanent=true"
+
+      # Router for HTTP traffic (entrypoint: http)
+      - "traefik.http.routers.gitlab.rule=Host(`${GITLAB_SUB_DOMAIN}.${DOMAIN}`)"
+      - "traefik.http.routers.gitlab.entrypoints=http"
+      - "traefik.http.routers.gitlab.middlewares=gitlab-redirect-https"
+
+      # Router for HTTPS traffic (entrypoint: https)
+      - "traefik.http.routers.gitlab-secure.rule=Host(`${GITLAB_SUB_DOMAIN}.${DOMAIN}`)"
+      - "traefik.http.routers.gitlab-secure.entrypoints=https"
+      - "traefik.http.routers.gitlab-secure.tls=true"
+      - "traefik.http.routers.gitlab-secure.tls.certresolver=default"
+      - "traefik.http.routers.gitlab-secure.service=gitlab-svc"
+
+      # Service for web traffic
+      - "traefik.http.services.gitlab-svc.loadbalancer.server.port=80"
+
+      # TCP Router and Service for SSH traffic
+      # - "traefik.tcp.routers.gitlab-ssh.rule=HostSNI(`*`)"
+      # - "traefik.tcp.routers.gitlab-ssh.entrypoints=ssh"
+      # - "traefik.tcp.routers.gitlab-ssh.service=gitlab-ssh-svc"
+      # - "traefik.tcp.services.gitlab-ssh-svc.loadbalancer.server.port=${GITLAB_SSH_PORT}"
+
+      # Router for HTTPS Registry traffic
+      - "traefik.http.routers.gitlab-registry-secure.rule=Host(`${REGISTRY_SUB_DOMAIN}.${DOMAIN}`)"
+      - "traefik.http.routers.gitlab-registry-secure.entrypoints=https"
+      - "traefik.http.routers.gitlab-registry-secure.tls=true"
+      - "traefik.http.routers.gitlab-registry-secure.tls.certresolver=default"
+      - "traefik.http.routers.gitlab-registry-secure.service=gitlab-registry-svc"
+
+      # Service for Registry traffic
+      - "traefik.http.services.gitlab-registry-svc.loadbalancer.server.port=5050"
