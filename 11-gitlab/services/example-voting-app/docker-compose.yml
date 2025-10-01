@@ -1,0 +1,122 @@
+# from dev cert
+version: "3.8"
+
+networks:
+  private_net:
+    external: true
+  public_net:
+    external: true
+
+volumes:
+  vote_db_data:
+
+services:
+  vote:
+    image: ${REPO_URL}/vote:${VERSION}
+    container_name: vote-${HOSTNAME}
+    hostname: vote-${HOSTNAME}
+    restart: ${RESTART_POLICY}
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - public_net
+      - private_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=public_net"
+
+      # Router for HTTP traffic (entrypoint: http)
+      - "traefik.http.routers.vote.rule=Host(`${VOTE_SUB}.${DOMAIN}`)"
+      - "traefik.http.routers.vote.entrypoints=http"
+      - "traefik.http.routers.vote.middlewares=redirect-to-https"
+
+      # Router for HTTPS traffic (entrypoint: https)
+      - "traefik.http.routers.vote-secure.rule=Host(`${VOTE_SUB}.${DOMAIN}`)"
+      - "traefik.http.routers.vote-secure.entrypoints=https"
+      - "traefik.http.routers.vote-secure.tls=true"
+      - "traefik.http.routers.vote-secure.tls.certresolver=default"
+
+      # Service for web traffic
+      - "traefik.http.services.vote-secure.loadbalancer.server.port=80"
+
+
+  result:
+    image: ${REPO_URL}/result:${VERSION}
+    container_name: result-${HOSTNAME}
+    hostname: result-${HOSTNAME}
+    restart: ${RESTART_POLICY}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - public_net
+      - private_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=public_net"
+
+      # Router for HTTP traffic (entrypoint: http)
+      - "traefik.http.routers.result.rule=Host(`${RESULT_SUB}.${DOMAIN}`)"
+      - "traefik.http.routers.result.entrypoints=http"
+      - "traefik.http.routers.result.middlewares=redirect-to-https"
+
+      # Router for HTTPS traffic (entrypoint: https)
+      - "traefik.http.routers.result-secure.rule=Host(`${RESULT_SUB}.${DOMAIN}`)"
+      - "traefik.http.routers.result-secure.entrypoints=https"
+      - "traefik.http.routers.result-secure.tls=true"
+      - "traefik.http.routers.result-secure.tls.certresolver=default"
+
+      # Service for web traffic
+      - "traefik.http.services.result-secure.loadbalancer.server.port=80"
+
+
+  worker:
+    image: ${REPO_URL}/worker:${VERSION}
+    container_name: worker-${HOSTNAME}
+    hostname: worker-${HOSTNAME}
+    restart: ${RESTART_POLICY}
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    networks:
+      - private_net
+
+  redis:
+    image: redis:alpine
+    container_name: redis-${HOSTNAME}
+    hostname: redis-${HOSTNAME}
+    restart: ${RESTART_POLICY}
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli ping | grep PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - private_net
+
+  db:
+    image: postgres:15-alpine
+    container_name: postgresql-${HOSTNAME}
+    hostname: postgresql-${HOSTNAME}
+    restart: ${RESTART_POLICY}
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+    volumes:
+      - vote_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - private_net

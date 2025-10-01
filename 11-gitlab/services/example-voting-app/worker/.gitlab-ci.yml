@@ -1,0 +1,86 @@
+stages:          # List of stages for jobs, and their order of execution
+  - build
+  - test
+  - deploy
+
+
+variables:
+  DEFAULT_IMG: "registry.gitlab.mvajhi.ir/mvajhi/img-builder/runner"
+  IMG_PATH: "${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}"
+  MAIN_DOMAIN: "mvajhi.ir"
+  SSH_USER: "ubuntu"
+
+.build-default:
+  image: docker:dind
+  retry: 2
+  before_script:
+    - echo "Login to docker reg..."
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+    - echo "Login successful"
+
+.test-default:
+  image: docker:dind
+  before_script:
+    - echo "Login to docker reg..."
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+    - echo "Login successful"
+
+.trivy-default:
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  variables:
+    GIT_STRATEGY: none
+    TRIVY_USERNAME: "$CI_REGISTRY_USER"
+    TRIVY_PASSWORD: "$CI_REGISTRY_PASSWORD"
+    TRIVY_AUTH_URL: "$CI_REGISTRY"
+    FULL_IMAGE_NAME: "${IMG_PATH}/vote:${CI_COMMIT_SHORT_SHA}"
+  script:
+    - trivy image --exit-code 0 --cache-dir .trivycache/ --no-progress --format template --template "@/contrib/gitlab.tpl" --output "$CI_PROJECT_DIR/gl-container-scanning-report.json" "$FULL_IMAGE_NAME"
+    - trivy image --exit-code 0 --cache-dir .trivycache/ --no-progress "$FULL_IMAGE_NAME"
+    - trivy image --exit-code 1 --cache-dir .trivycache/ --severity CRITICAL --no-progress "$FULL_IMAGE_NAME"
+  cache:
+    paths:
+      - /cache/.trivycache/
+  artifacts:
+    reports:
+      container_scanning: gl-container-scanning-report.json
+  allow_failure: true
+
+build-worker-img:
+  stage: build
+  extends: .build-default
+  script:
+    - echo "Building img..."
+    - docker build -t ${IMG_PATH}/worker:${CI_COMMIT_SHORT_SHA} ./
+    - docker push ${IMG_PATH}/worker:${CI_COMMIT_SHORT_SHA}
+    - docker tag ${IMG_PATH}/worker:${CI_COMMIT_SHORT_SHA} ${IMG_PATH}/worker:latest
+    - docker push ${IMG_PATH}/worker:latest
+    - echo "Building img complete."
+
+test-worker-img:
+  stage: test
+  extends: .test-default
+  needs:
+    - build-worker-img
+  variables:
+    IMG: "worker"
+  script:
+    - echo "Pulling image for test ${IMG}..."
+    - docker pull "${IMG_PATH}/${IMG}:${CI_COMMIT_SHORT_SHA}"
+    - echo "Testing image ${IMG}..."
+    - sleep 5
+    - echo "All tests pass for ${IMG}"
+
+# scan-worker-img:
+#   stage: test
+#   extends: .trivy-default
+#   needs: 
+#     - "test-worker-img"
+#   variables:
+#     IMAGE: ${IMAGE_PATH}/worker:${CI_COMMIT_SHORT_SHA}
+
+deploy:
+  stage: deploy
+  trigger:
+    project: ${CI_PROJECT_NAMESPACE}/devops

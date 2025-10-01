@@ -1,0 +1,175 @@
+stages:          # List of stages for jobs, and their order of execution
+  - build
+  - test
+  - deploy
+  - post-deploy
+
+variables:
+  DEFAULT_IMG: "registry.gitlab.mvajhi.ir/mvajhi/img-builder/runner"
+  IMG_PATH: "${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}"
+  MAIN_DOMAIN: "mvajhi.ir"
+  SSH_USER: "ubuntu"
+
+.build-default:
+  image: docker:dind
+  retry: 2
+  before_script:
+    - echo "Login to docker reg..."
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+    - echo "Login successful"
+
+.test-default:
+  image: docker:dind
+  before_script:
+    - echo "Login to docker reg..."
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+    - echo "Login successful"
+
+.trivy-default:
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  variables:
+    GIT_STRATEGY: none
+    TRIVY_USERNAME: "$CI_REGISTRY_USER"
+    TRIVY_PASSWORD: "$CI_REGISTRY_PASSWORD"
+    TRIVY_AUTH_URL: "$CI_REGISTRY"
+    FULL_IMAGE_NAME: "${IMG_PATH}/vote:${CI_COMMIT_SHORT_SHA}"
+  script:
+    - trivy image --exit-code 0 --cache-dir .trivycache/ --no-progress --format template --template "@/contrib/gitlab.tpl" --output "$CI_PROJECT_DIR/gl-container-scanning-report.json" "$FULL_IMAGE_NAME"
+    - trivy image --exit-code 0 --cache-dir .trivycache/ --no-progress "$FULL_IMAGE_NAME"
+    - trivy image --exit-code 1 --cache-dir .trivycache/ --severity CRITICAL --no-progress "$FULL_IMAGE_NAME"
+  cache:
+    paths:
+      - /cache/.trivycache/
+  artifacts:
+    reports:
+      container_scanning: gl-container-scanning-report.json
+  allow_failure: true
+
+build-load-img:
+  stage: build
+  extends: .build-default
+  script:
+    - echo "Building img..."
+    - docker build -t ${IMG_PATH}/load:latest ./seed-data
+    - docker push ${IMG_PATH}/load:latest
+    - echo "Building img complete."
+  rules:
+    - changes:
+        - seed-data/**
+
+deploy-develop:
+  stage: deploy
+  image: $DEFAULT_IMG:tools
+  variables:
+    D_ADDR: mono.develop.${MAIN_DOMAIN}
+    SERVER_NAME: develop-server
+    R_URL: ${IMG_PATH}
+    PIPELINE_ID: ${CI_COMMIT_SHORT_SHA}
+    DEPLOY_PATH: "/opt/compose/voting-app"
+  before_script:
+    - echo "Set ssh key..."
+    - chmod 400 $SSH_P_KEY
+    - eval $(ssh-agent -s)
+    - ssh-add $SSH_P_KEY
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+  script:
+    - echo "Set env file..."
+    - sed -e "s|D_ADDR|${D_ADDR}|g" -e "s|SERVER_NAME|${SERVER_NAME}|g" -e "s|R_URL|${R_URL}|g" -e "s|PIPELINE_ID|${PIPELINE_ID}|g" .env | tee .env.deploy
+    - echo "Copy files to server..."
+    - ssh -o StrictHostKeyChecking=no $SSH_USER@$D_ADDR "sudo [ -d $DEPLOY_PATH ] || sudo mkdir -p $DEPLOY_PATH && sudo chown $SSH_USER $DEPLOY_PATH"
+    - scp -o StrictHostKeyChecking=no .env.deploy $SSH_USER@$D_ADDR:$DEPLOY_PATH/.env
+    - scp -o StrictHostKeyChecking=no docker-compose.yml $SSH_USER@$D_ADDR:$DEPLOY_PATH/docker-compose.yml
+    - echo "Deploying to server..."
+    - |
+      ssh -o StrictHostKeyChecking=no $SSH_USER@$D_ADDR "
+      echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+      cd ${DEPLOY_PATH}
+      docker compose up -d --wait
+      "
+  
+  environment:
+    name: develop
+    url: https://vote.mono.develop.${MAIN_DOMAIN}
+
+post-deploy-load-test-develop:
+  needs:
+    - deploy-develop
+  stage: post-deploy
+  image: docker:dind
+  variables:
+    DOMAIN: mono.develop.${MAIN_DOMAIN}
+    HOSTNAME: develop
+    DOCKER_RUN: docker run -id --name loadtest-${HOSTNAME} ${IMG_PATH}/load:latest bash
+    DOCKER_EXEC: docker exec -i loadtest-${HOSTNAME}
+  before_script:
+    - echo "Login to docker reg..."
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+    - echo "Login successful"
+  script:
+    - ${DOCKER_RUN}
+    - ${DOCKER_EXEC} python make-data.py
+    - ${DOCKER_EXEC} ab -n 100 -c 50 -p posta -T "application/x-www-form-urlencoded" https://vote.${DOMAIN}/ 
+    - ${DOCKER_EXEC} ab -n 1000 -c 50 -p postb -T "application/x-www-form-urlencoded" https://vote.${DOMAIN}/
+  after_script:
+    - docker rm -f loadtest-${HOSTNAME}
+
+# from dev cert
+postgres-create-backup:
+  stage: schedules
+  image: $DEFAULT_IMG:tools
+  variables:
+    D_ADDR: mono.develop.${MAIN_DOMAIN}
+  before_script:
+    - echo "Set ssh key..."
+    - chmod 400 $SSH_P_KEY
+    - eval $(ssh-agent -s)
+    - ssh-add $SSH_P_KEY
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+  script:
+    - |
+      ssh -o StrictHostKeyChecking=no -p ${SSH_PORT} ${SSH_USER}@${D_ADDR} "
+      # Create directory if not exist
+      [ -d ${BACKUP_PATH} ] || mkdir -p ${BACKUP_PATH}
+      cd ${BACKUP_PATH}
+
+      # Create postgresql backup
+      docker exec -i -e PGPASSWORD=${POSTGRES_PASSWORD} postgresql-production /usr/local/bin/pg_dumpall --host=localhost --port=5432 --username=${POSTGRES_USER} | gzip -9 > postgres_backup_${CI_PIPELINE_ID}.sql.gz
+      "
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+postgres-check-backup:
+  stage: schedules
+  image: reg.mecan.ir/vote/runner-image:dind
+  needs: ["postgres-create-backup"]
+  variables:
+    POSTGRES_USER: ${POSTGRES_USER}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  before_script:
+    - echo "Set ssh key..."
+    - chmod 400 $SSH_P_KEY
+    - eval $(ssh-agent -s)
+    - ssh-add $SSH_P_KEY
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+  script:
+    - scp -o StrictHostKeyChecking=no -P${SSH_PORT} ${SSH_USER}@${SERVER_NAME}:${BACKUP_PATH}/postgres_backup_${CI_PIPELINE_ID}.sql.gz .
+    - gunzip postgres_backup_${CI_PIPELINE_ID}.sql.gz
+    - cp postgres_backup_${CI_PIPELINE_ID}.sql psql-test
+    - docker run -d --name psql-test -e POSTGRES_USER=${POSTGRES_USER} -e POSTGRES_PASSWORD=${POSTGRES_PASSWORD} postgres:15-alpine
+    - docker cp psql-test psql-test:/opt
+    - sleep 10
+    - cat psql-test/psql-test.sh | docker exec -i psql-test bash
+    - docker cp psql-test:/opt/psql-test/restore.log .
+  artifacts:
+    paths:
+    - ./restore.log
+    expire_in: 1 week
+  after_script:
+    - docker rm -f psql-test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
